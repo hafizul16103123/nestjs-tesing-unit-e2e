@@ -1,16 +1,31 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { BookService } from './book.service';
-import { getModelToken } from '@nestjs/mongoose';
-import { Book, Category } from './schemas/book.schema';
-import mongoose, { Model } from 'mongoose';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { CreateBookDto } from './dto/create-book.dto';
-import { User } from '../auth/schemas/user.schema';
+import { BadRequestException } from "@nestjs/common"
+import { getModelToken } from "@nestjs/mongoose"
+import { Test, TestingModule } from "@nestjs/testing"
+import mongoose, { Model } from "mongoose"
+import { User } from "src/auth/schemas/user.schema"
+import { BookService } from "./book.service"
+import { CreateBookDto } from "./dto/create-book.dto"
+import { Book, Category } from "./schemas/book.schema"
 
 describe('BookService', () => {
-  let bookService: BookService;
-  let model: Model<Book>;
+  let bookService: BookService
+  let bookModel: Model<Book>
 
+  // mock models
+  // book nodel
+  const mockBookModel = {
+    find: jest.fn(),
+    create: jest.fn(),
+    findById: jest.fn(),
+    findByIdAndUpdate: jest.fn(),
+    findByIdAndDelete: jest.fn(),
+  }
+  const bookModelToken = getModelToken(Book.name);
+  const MockBookModelService = {
+    provide: bookModelToken,
+    useValue: mockBookModel
+  }
+  // mock book data
   const mockBook = {
     _id: '61c0ccf11d7bf83d153d7c06',
     user: '61c0ccf11d7bf83d153d7c06',
@@ -27,55 +42,22 @@ describe('BookService', () => {
     email: 'ghulam1@gmail.com',
   };
 
-  const mockBookService = {
-    find: jest.fn(),
-    create: jest.fn(),
-    findById: jest.fn(),
-    findByIdAndUpdate: jest.fn(),
-    findByIdAndDelete: jest.fn(),
-  };
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BookService,
-        {
-          provide: getModelToken(Book.name),
-          useValue: mockBookService,
-        },
-      ],
-    }).compile();
+        MockBookModelService
+      ]
+    }).compile()
 
-    bookService = module.get<BookService>(BookService);
-    model = module.get<Model<Book>>(getModelToken(Book.name));
-  });
-
-  describe('findAll', () => {
-    it('should return an array of books', async () => {
-      const query = { page: '1', keyword: 'test' };
-
-      jest.spyOn(model, 'find').mockImplementation(
-        () =>
-          ({
-            limit: () => ({
-              skip: jest.fn().mockResolvedValue([mockBook]),
-            }),
-          } as any),
-      );
-
-      const result = await bookService.findAll(query);
-
-      expect(model.find).toHaveBeenCalledWith({
-        title: { $regex: 'test', $options: 'i' },
-      });
-
-      expect(result).toEqual([mockBook]);
-    });
-  });
+    bookService = module.get<BookService>(BookService)
+    bookModel = module.get<Model<Book>>(bookModelToken)
+  })
 
   describe('create', () => {
-    it('should create and return a book', async () => {
-      const newBook = {
+
+    it('should create a book and return created Book', async () => {
+      const mockNewBook = {
         title: 'New Book',
         description: 'Book Description',
         author: 'Author',
@@ -83,65 +65,25 @@ describe('BookService', () => {
         category: Category.FANTASY,
       };
 
-      jest
-        .spyOn(model, 'create')
-        .mockImplementationOnce(() => Promise.resolve(mockBook));
+      jest.spyOn(bookModel, "create").mockImplementationOnce(() => Promise.resolve(mockBook))
 
-      const result = await bookService.create(
-        newBook as CreateBookDto,
-        mockUser as User,
-      );
+      const res = await bookService.create(mockNewBook as CreateBookDto, mockUser as User)
+      expect(res).toEqual(mockBook)
+    })
 
-      expect(result).toEqual(mockBook);
-    });
-  });
-
-  describe('findById', () => {
-    it('should find and return a book by ID', async () => {
-      jest.spyOn(model, 'findById').mockResolvedValue(mockBook);
-
-      const result = await bookService.findById(mockBook._id);
-
-      expect(model.findById).toHaveBeenCalledWith(mockBook._id);
-      expect(result).toEqual(mockBook);
-    });
-
-    it('should throw BadRequestException if invalid ID is provided', async () => {
-      const id = 'invalid-id';
-
-      const isValidObjectIDMock = jest
-        .spyOn(mongoose, 'isValidObjectId')
-        .mockReturnValue(false);
-
-      await expect(bookService.findById(id)).rejects.toThrow(
-        BadRequestException,
-      );
-
-      expect(isValidObjectIDMock).toHaveBeenCalledWith(id);
-      isValidObjectIDMock.mockRestore();
-    });
-
-    it('should throw NotFoundException if book is not found', async () => {
-      jest.spyOn(model, 'findById').mockResolvedValue(null);
-
-      await expect(bookService.findById(mockBook._id)).rejects.toThrow(
-        NotFoundException,
-      );
-
-      expect(model.findById).toHaveBeenCalledWith(mockBook._id);
-    });
-  });
+  })
 
   describe('updateById', () => {
     it('should update and return a book', async () => {
+
       const updatedBook = { ...mockBook, title: 'Updated name' };
       const book = { title: 'Updated name' };
 
-      jest.spyOn(model, 'findByIdAndUpdate').mockResolvedValue(updatedBook);
+      jest.spyOn(bookModel, 'findByIdAndUpdate').mockResolvedValue(updatedBook);
 
       const result = await bookService.updateById(mockBook._id, book as any);
 
-      expect(model.findByIdAndUpdate).toHaveBeenCalledWith(mockBook._id, book, {
+      expect(bookModel.findByIdAndUpdate).toHaveBeenCalledWith(mockBook._id, book, {
         new: true,
         runValidators: true,
       });
@@ -150,15 +92,75 @@ describe('BookService', () => {
     });
   });
 
+  describe('findById', () => {
+
+    it('should return a book', async () => {
+      jest.spyOn(bookModel, 'findById').mockResolvedValue(mockBook)
+      const result = await bookService.findById(mockBook._id)
+
+      expect(bookModel.findById).toHaveBeenCalledWith(mockBook._id)
+      expect(result).toEqual(mockBook)
+
+    })
+
+    it('should throw BadRequestException if id is invalid', () => {
+      const id = "invalid-id"
+      jest.spyOn(mongoose, 'isValidObjectId').mockReturnValue(false)
+      const result = bookService.findById(id)
+
+      expect(result).rejects.toThrow(BadRequestException)
+      expect(mongoose.isValidObjectId).toHaveBeenCalledWith(id)
+
+    })
+
+    it('should throw NotFoundException if book not found', async () => {
+      jest.spyOn(bookModel, 'findById').mockResolvedValue(null)
+      const result = bookService.findById(mockBook._id)
+
+      expect(result).rejects.toThrowError()
+      expect(bookModel.findById).toHaveBeenCalledWith(mockBook._id)
+
+    })
+
+
+  })
+
+  describe('findAll', () => {
+
+    it('should retuen array of books', async () => {
+
+      jest.spyOn(bookModel, 'find').mockImplementation(() => ({
+        limit: () => ({
+          skip: jest.fn().mockResolvedValue([mockBook])
+        })
+      } as any))
+      const query = { page: "1", keyword: 'test' }
+      const result = await bookService.findAll(query)
+
+      expect(result).toEqual([mockBook])
+      expect(bookModel.find).toHaveBeenCalledWith({
+        title: {
+          $regex: 'test',
+          $options: 'i',
+        },
+      })
+
+
+    })
+
+  })
+  
   describe('deleteById', () => {
     it('should delete and return a book', async () => {
-      jest.spyOn(model, 'findByIdAndDelete').mockResolvedValue(mockBook);
-
+      jest.spyOn(bookModel, 'findByIdAndDelete').mockResolvedValue(mockBook);
+      
       const result = await bookService.deleteById(mockBook._id);
 
-      expect(model.findByIdAndDelete).toHaveBeenCalledWith(mockBook._id);
+      expect(bookModel.findByIdAndDelete).toHaveBeenCalledWith(mockBook._id);
 
       expect(result).toEqual(mockBook);
     });
   });
-});
+
+
+})
