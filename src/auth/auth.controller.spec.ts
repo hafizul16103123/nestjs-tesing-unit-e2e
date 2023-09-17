@@ -42,30 +42,44 @@ describe('AuthController', () => {
   });
 
   describe('signup', () => {
-    it('should register a new user', async() => {
-      const signUpDto = {
-        name: 'Ghulam',
-        email: 'ghulam1@gmail.com',
-        password: '12345678',
-      };
-
-      const res = await authController.signUp(signUpDto)
-      expect(authService.signUp).toHaveBeenCalled()
-      expect(res).toEqual(jwtToken)
+    describe('when signup is called', () => {
+      let res
+      beforeEach(async () => {
+        const signUpDto = {
+          name: 'Ghulam',
+          email: 'ghulam1@gmail.com',
+          password: '12345678',
+        };
+        res = await authController.signUp(signUpDto)
+      })
+      it('should register a new user', async () => {
+        expect(res).toEqual(jwtToken)
+      })
+      it('should call authService.signup', async () => {
+        expect(authService.signUp).toHaveBeenCalled()
+      })
     })
+
 
   });
   describe('login', () => {
-    it('should login a new user', async () => {
-      const loginDto = {
-        email: 'ghulam1@gmail.com',
-        password: '12345678',
-      };
-
-      const res = await authController.login(loginDto)
-      expect(authService.login).toHaveBeenCalled()
-      expect(res).toEqual(jwtToken)
+    describe('when login is called', () => {
+      let res
+      beforeEach(async () => {
+        const loginDto = {
+          email: 'ghulam1@gmail.com',
+          password: '12345678',
+        };
+        res = await authController.login(loginDto)
+      })
+      it('should login a new user', async () => {
+        expect(res).toEqual(jwtToken)
+      })
+      it('should call authService.login', async () => {
+        expect(authService.login).toHaveBeenCalled()
+      })
     })
+
 
   });
 });
